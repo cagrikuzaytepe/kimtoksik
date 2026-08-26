@@ -1,0 +1,119 @@
+import type { ChatStats, AIReport } from "./types";
+import { buildAnalysisPrompt } from "./prompts";
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = "gemini-3.6-flash";
+
+export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
+  if (!GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY ayarlanmamis");
+  }
+
+  const prompt = buildAnalysisPrompt(stats);
+
+  // 1. dene: JSON mode ile
+  let text = await callGemini(prompt, true);
+
+  // e bos geldi veya JSON icermediyse, JSON mode olmadan dene
+  if (!text || !text.includes("{")) {
+    console.warn("JSON mode bos geldi, normal mod ile deneniyor...");
+    text = await callGemini(prompt, false);
+  }
+
+  if (!text) {
+    throw new Error("AI bos yanit dondurdu");
+  }
+
+  // JSON cikar
+  const parsed = extractJSON(text);
+  if (!parsed) {
+    console.error("Tum denemeler basarisiz. Raw:", text.slice(0, 500));
+    throw new Error("AI gecerli JSON dondurmedi");
+  }
+
+  if (typeof parsed.toxicityScore !== "number") {
+    parsed.toxicityScore = 50;
+  }
+  parsed.toxicityScore = Math.max(0, Math.min(100, parsed.toxicityScore));
+  if (!parsed.toxicityLabel) parsed.toxicityLabel = "belirsiz";
+  if (!parsed.verdict) parsed.verdict = "beraberlik";
+  if (!parsed.redFlags) parsed.redFlags = [];
+  if (!parsed.whoChases) parsed.whoChases = [];
+  if (!parsed.whoChasesDescription) parsed.whoChasesDescription = "";
+  if (!parsed.toxicityDescription) parsed.toxicityDescription = "";
+  if (!parsed.verdictDescription) parsed.verdictDescription = "";
+  if (!parsed.funFact) parsed.funFact = "";
+
+  return parsed as AIReport;
+}
+
+async function callGemini(
+  prompt: string,
+  jsonResponse: boolean
+): Promise<string | null> {
+  const config: Record<string, unknown> = {
+    maxOutputTokens: 8192,
+  };
+  if (jsonResponse) {
+    config.responseMimeType = "application/json";
+  }
+
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: config,
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const err = await res.text();
+    console.error("Gemini API error:", res.status, err.slice(0, 300));
+    return null;
+  }
+
+  const data = await res.json();
+  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+}
+
+function extractJSON(text: string): AIReport | null {
+  // 1. direkt parse dene
+  try {
+    return JSON.parse(text);
+  } catch {
+    // devam
+  }
+
+  // 2. { ile baslayip } ile biten en buyuk parcayi bul
+  const firstBrace = text.indexOf("{");
+  const lastBrace = text.lastIndexOf("}");
+
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return null;
+  }
+
+  const candidate = text.slice(firstBrace, lastBrace + 1);
+  try {
+    return JSON.parse(candidate);
+  } catch {
+    // devam
+  }
+
+  // 3. kademeli olarak kucult
+  for (let end = lastBrace; end > firstBrace; end--) {
+    const sub = text.slice(firstBrace, end + 1);
+    if (sub.endsWith("}")) {
+      try {
+        return JSON.parse(sub);
+      } catch {
+        // devam
+      }
+    }
+  }
+
+  return null;
+}
