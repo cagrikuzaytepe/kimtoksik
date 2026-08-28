@@ -37,9 +37,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (content.length > 500_000) {
+    if (content.length > 2_000_000) {
       return NextResponse.json(
-        { error: "dosya cok buyuk. 500KB'dan kucuk olmali" },
+        { error: "dosya cok buyuk. 2MB'dan kucuk olmali" },
         { status: 400 }
       );
     }
