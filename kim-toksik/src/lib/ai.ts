@@ -37,8 +37,8 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
   parsed.toxicityScore = Math.max(0, Math.min(100, parsed.toxicityScore));
   if (!parsed.toxicityLabel) parsed.toxicityLabel = "belirsiz";
   if (!parsed.verdict) parsed.verdict = "beraberlik";
-  if (!parsed.redFlags) parsed.redFlags = [];
-  if (!parsed.whoChases) parsed.whoChases = [];
+  if (!Array.isArray(parsed.redFlags)) parsed.redFlags = [];
+  if (!Array.isArray(parsed.whoChases)) parsed.whoChases = [];
   if (!parsed.whoChasesDescription) parsed.whoChasesDescription = "";
   if (!parsed.toxicityDescription) parsed.toxicityDescription = "";
   if (!parsed.verdictDescription) parsed.verdictDescription = "";

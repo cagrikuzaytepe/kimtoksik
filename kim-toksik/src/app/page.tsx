@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Home from "@/components/Home";
 
 export const metadata: Metadata = {
@@ -80,11 +81,13 @@ const faqJsonLd = {
   ],
 };
 
-export default function Page() {
+export default async function Page() {
+  const nonce = (await headers()).get("x-nonce") ?? "";
   return (
     <>
       <script
         type="application/ld+json"
+        nonce={nonce}
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <Home />

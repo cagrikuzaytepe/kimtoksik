@@ -96,12 +96,14 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(report);
+    return NextResponse.json(report, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } catch (e) {
     console.error("API error:", e);
     return NextResponse.json(
       { error: "sunucu hatasi" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 }
@@ -111,7 +113,10 @@ export async function GET(request: Request) {
   const id = searchParams.get("id");
 
   if (!id) {
-    return NextResponse.json({ error: "id gerekli" }, { status: 400 });
+    return NextResponse.json(
+      { error: "id gerekli" },
+      { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } }
+    );
   }
 
   const supabase = getSupabase();
@@ -125,16 +130,18 @@ export async function GET(request: Request) {
     console.error("Supabase select error:", error);
     return NextResponse.json(
       { error: "rapor yuklenemedi" },
-      { status: 500 }
+      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
   if (!data) {
     return NextResponse.json(
       { error: "rapor bulunamadi" },
-      { status: 404 }
+      { status: 404, headers: { "Cache-Control": "no-store, max-age=0" } }
     );
   }
 
-  return NextResponse.json(data.data);
+  return NextResponse.json(data.data, {
+    headers: { "Cache-Control": "no-store, max-age=0" },
+  });
 }
