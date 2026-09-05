@@ -5,6 +5,27 @@ import { nanoid } from "nanoid";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { getSupabase } from "@/lib/supabase";
 
+const ALLOWED_ORIGINS = [
+  process.env.SITE_URL || "https://kimtoksik.lol",
+  "https://kim-toksik.onrender.com",
+  "http://localhost:3000",
+];
+
+function getCorsHeaders(request: Request): Record<string, string> {
+  const origin = request.headers.get("origin") || "";
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400",
+  };
+
+  if (ALLOWED_ORIGINS.includes(origin)) {
+    headers["Access-Control-Allow-Origin"] = origin;
+  }
+
+  return headers;
+}
+
 function getClientIP(request: Request): string {
   const xff = request.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0].trim();
@@ -12,16 +33,23 @@ function getClientIP(request: Request): string {
 }
 
 export async function POST(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
+
+  // Handle preflight
+  if (request.method === "OPTIONS") {
+    return new NextResponse(null, { status: 204, headers: corsHeaders });
+  }
+
   const ip = getClientIP(request);
 
   // Rate limit: IP basina 5 istek / dakika
-  const rl = checkRateLimit(ip, 5, 60 * 1000);
+  const rl = await checkRateLimit(ip, 5, 60 * 1000);
   if (!rl.allowed) {
     return NextResponse.json(
       {
         error: "cok fazla istek gonderdin. " + Math.ceil(rl.retryAfterMs / 1000) + " sn bekle",
       },
-      { status: 429 }
+      { status: 429, headers: corsHeaders }
     );
   }
 
@@ -32,14 +60,14 @@ export async function POST(request: Request) {
     if (!content || typeof content !== "string") {
       return NextResponse.json(
         { error: "gecerli bir sohbet dosyasi gerekli" },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    if (content.length > 2_000_000) {
+    if (content.length > 5 * 1024 * 1024) {
       return NextResponse.json(
-        { error: "dosya cok buyuk. 2MB'dan kucuk olmali" },
-        { status: 400 }
+        { error: "dosya cok buyuk. 5MB'dan kucuk olmali" },
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -54,7 +82,7 @@ export async function POST(request: Request) {
               ? e.message
               : "sohbet okunamadi",
         },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -70,7 +98,7 @@ export async function POST(request: Request) {
               ? e.message
               : "analiz sirasinda bir seyler ters gitti",
         },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -92,30 +120,46 @@ export async function POST(request: Request) {
       console.error("Supabase insert error:", error);
       return NextResponse.json(
         { error: "rapor kaydedilemedi. tekrar dene" },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
     return NextResponse.json(report, {
-      headers: { "Cache-Control": "no-store, max-age=0" },
+      headers: {
+        ...corsHeaders,
+        "Cache-Control": "no-store, max-age=0",
+      },
     });
   } catch (e) {
     console.error("API error:", e);
     return NextResponse.json(
       { error: "sunucu hatasi" },
-      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } }
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 }
 
 export async function GET(request: Request) {
+  const corsHeaders = getCorsHeaders(request);
   const { searchParams } = new URL(request.url);
   const id = searchParams.get("id");
 
   if (!id) {
     return NextResponse.json(
       { error: "id gerekli" },
-      { status: 400, headers: { "Cache-Control": "no-store, max-age=0" } }
+      {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 
@@ -130,18 +174,33 @@ export async function GET(request: Request) {
     console.error("Supabase select error:", error);
     return NextResponse.json(
       { error: "rapor yuklenemedi" },
-      { status: 500, headers: { "Cache-Control": "no-store, max-age=0" } }
+      {
+        status: 500,
+        headers: {
+          ...corsHeaders,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 
   if (!data) {
     return NextResponse.json(
       { error: "rapor bulunamadi" },
-      { status: 404, headers: { "Cache-Control": "no-store, max-age=0" } }
+      {
+        status: 404,
+        headers: {
+          ...corsHeaders,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
     );
   }
 
   return NextResponse.json(data.data, {
-    headers: { "Cache-Control": "no-store, max-age=0" },
+    headers: {
+      ...corsHeaders,
+      "Cache-Control": "no-store, max-age=0",
+    },
   });
 }

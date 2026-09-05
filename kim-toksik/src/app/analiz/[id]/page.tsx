@@ -12,6 +12,19 @@ interface ReportData {
   aiReport: AIReport;
 }
 
+function deserializeDates(data: ReportData): ReportData {
+  data.chatStats.dateRange.start = new Date(
+    data.chatStats.dateRange.start
+  );
+  data.chatStats.dateRange.end = new Date(
+    data.chatStats.dateRange.end
+  );
+  for (const msg of data.chatStats.sampleMessages) {
+    msg.date = new Date(msg.date);
+  }
+  return data;
+}
+
 export default function AnalizPage({
   params,
 }: {
@@ -23,46 +36,48 @@ export default function AnalizPage({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const cached = sessionStorage.getItem(`report-${id}`);
-    if (cached) {
-      try {
-        const data = JSON.parse(cached) as ReportData;
-        data.chatStats.dateRange.start = new Date(
-          data.chatStats.dateRange.start
-        );
-        data.chatStats.dateRange.end = new Date(
-          data.chatStats.dateRange.end
-        );
-        for (const msg of data.chatStats.sampleMessages) {
-          msg.date = new Date(msg.date);
+    let cancelled = false;
+
+    async function loadReport() {
+      // SessionStorage'dan kontrol et
+      const cached = sessionStorage.getItem(`report-${id}`);
+      if (cached) {
+        try {
+          const data = deserializeDates(JSON.parse(cached) as ReportData);
+          if (!cancelled) {
+            setReport(data);
+            setLoading(false);
+          }
+          return;
+        } catch {
+          // Fall through to API
         }
-        setReport(data);
-        setLoading(false);
-        return;
+      }
+
+      // API'den yukle
+      try {
+        const res = await fetch(`/api/analiz?id=${id}`);
+        if (!res.ok) throw new Error("rapor bulunamadi");
+        const data = deserializeDates(await res.json());
+        if (!cancelled) {
+          setReport(data);
+        }
       } catch {
-        // Fall through to API
+        if (!cancelled) {
+          setError("rapor yuklenemedi. tekrar dene.");
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
-    fetch(`/api/analiz?id=${id}`)
-      .then((res) => {
-        if (!res.ok) throw new Error("rapor bulunamadi");
-        return res.json();
-      })
-      .then((data) => {
-        data.chatStats.dateRange.start = new Date(
-          data.chatStats.dateRange.start
-        );
-        data.chatStats.dateRange.end = new Date(
-          data.chatStats.dateRange.end
-        );
-        for (const msg of data.chatStats.sampleMessages) {
-          msg.date = new Date(msg.date);
-        }
-        setReport(data);
-      })
-      .catch(() => setError("rapor yuklenemedi. tekrar dene."))
-      .finally(() => setLoading(false));
+    loadReport();
+
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
 
   if (loading) {

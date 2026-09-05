@@ -2,7 +2,13 @@ import type { ChatStats, AIReport } from "./types";
 import { buildAnalysisPrompt } from "./prompts";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-3.6-flash";
+
+// Model siralamasi: once en az yogun olan, sonra digerleri
+const MODELS = [
+  "gemini-3.5-flash-lite",  // 1. sirada: en hizli, en az yogun
+  "gemini-3.5-flash",       // 2. sirada: dengeli
+  "gemini-2.5-flash",       // 3. sirada: backup
+];
 
 export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
   if (!GEMINI_API_KEY) {
@@ -11,17 +17,34 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
 
   const prompt = buildAnalysisPrompt(stats);
 
-  // 1. dene: JSON mode ile
-  let text = await callGemini(prompt, true);
+  let text: string | null = null;
+  let lastError: string = "";
 
-  // e bos geldi veya JSON icermediyse, JSON mode olmadan dene
-  if (!text || !text.includes("{")) {
-    console.warn("JSON mode bos geldi, normal mod ile deneniyor...");
-    text = await callGemini(prompt, false);
+  // Her modeli dene
+  for (const model of MODELS) {
+    console.log(`Model deneniyor: ${model}`);
+
+    // 1. dene: JSON mode ile
+    text = await callGemini(prompt, true, model);
+
+    // e bos geldi veya JSON icermediyse, JSON mode olmadan dene
+    if (!text || !text.includes("{")) {
+      console.warn(`${model} - JSON mode bos geldi, normal mod ile deneniyor...`);
+      text = await callGemini(prompt, false, model);
+    }
+
+    if (text && text.includes("{")) {
+      console.log(`${model} basarili!`);
+      break;
+    }
+
+    lastError = `${model} basarisiz`;
+    console.warn(`${model} basarisiz, siradaki modele geciliyor...`);
+    text = null;
   }
 
   if (!text) {
-    throw new Error("AI bos yanit dondurdu");
+    throw new Error(`Tum modeller basarisiz. Son hata: ${lastError}`);
   }
 
   // JSON cikar
@@ -49,7 +72,8 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
 
 async function callGemini(
   prompt: string,
-  jsonResponse: boolean
+  jsonResponse: boolean,
+  model: string
 ): Promise<string | null> {
   const config: Record<string, unknown> = {
     maxOutputTokens: 8192,
@@ -58,26 +82,34 @@ async function callGemini(
     config.responseMimeType = "application/json";
   }
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: config,
-      }),
-    }
-  );
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": GEMINI_API_KEY!,
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: config,
+        }),
+      }
+    );
 
-  if (!res.ok) {
-    const err = await res.text();
-    console.error("Gemini API error:", res.status, err.slice(0, 300));
+    if (!res.ok) {
+      const err = await res.text();
+      console.error(`Gemini API error (${model}):`, res.status, err.slice(0, 300));
+      return null;
+    }
+
+    const data = await res.json();
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
+  } catch (e) {
+    console.error(`Gemini fetch error (${model}):`, e);
     return null;
   }
-
-  const data = await res.json();
-  return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
 }
 
 function extractJSON(text: string): AIReport | null {

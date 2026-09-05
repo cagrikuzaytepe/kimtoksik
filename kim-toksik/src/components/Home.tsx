@@ -39,7 +39,7 @@ export default function Home() {
     },
   ];
 
-  const handleUpload = async (content: string, _fileName: string) => {
+  const handleUpload = async (content: string) => {
     setIsLoading(true);
     setError(null);
     setProgress("sohbet okunuyor...");

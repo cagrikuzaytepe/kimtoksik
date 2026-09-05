@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import JSZip from "jszip";
 
 interface FileUploadProps {
-  onUpload: (content: string, fileName: string) => void;
+  onUpload: (content: string) => void;
 }
 
 const MAX_SIZE = 5 * 1024 * 1024;
@@ -78,7 +78,7 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
           setError("dosya cok kucuk. whatsapp sohbeti mi yukledin?");
           return;
         }
-        onUpload(content, isTxt ? file.name : "_chat.txt");
+        onUpload(content);
       } catch {
         setError("zip acilamadi. gecerli bir whatsapp sohbet zipi olmali");
       } finally {

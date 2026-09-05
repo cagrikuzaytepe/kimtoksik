@@ -70,8 +70,7 @@ function isLateNight(date: Date): boolean {
 }
 
 function selectSampleMessages(
-  messages: ParsedMessage[],
-  _persons: string[]
+  messages: ParsedMessage[]
 ): SampleMessage[] {
   const userMessages = messages.filter(
     (m) => m.author && !isSystemMessage(m.message)
@@ -381,7 +380,7 @@ export function parseWhatsAppChat(rawText: string): ChatStats {
     .slice(0, 10);
 
   const toxicitySignals = detectToxicitySignals(messages, persons);
-  const sampleMessages = selectSampleMessages(messages, persons);
+  const sampleMessages = selectSampleMessages(messages);
 
   return {
     totalMessages: userMessages.length,
