@@ -10,3 +10,9 @@ services:
         value: production
       - key: GEMINI_API_KEY
         sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false
+      - key: SITE_URL
+        sync: false

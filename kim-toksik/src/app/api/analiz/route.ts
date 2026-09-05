@@ -3,8 +3,7 @@ import { parseWhatsAppChat } from "@/lib/parser";
 import { analyzeWithAI } from "@/lib/ai";
 import { nanoid } from "nanoid";
 import { checkRateLimit } from "@/lib/rateLimit";
-
-const reportStore = new Map<string, unknown>();
+import { getSupabase } from "@/lib/supabase";
 
 function getClientIP(request: Request): string {
   const xff = request.headers.get("x-forwarded-for");
@@ -83,12 +82,18 @@ export async function POST(request: Request) {
       aiReport,
     };
 
-    reportStore.set(id, report);
+    const supabase = getSupabase();
+    const { error } = await supabase.from("reports").insert({
+      id,
+      data: report,
+    });
 
-    // Eski raporlari temizle (max 200 tut)
-    if (reportStore.size > 200) {
-      const firstKey = reportStore.keys().next().value;
-      if (firstKey) reportStore.delete(firstKey);
+    if (error) {
+      console.error("Supabase insert error:", error);
+      return NextResponse.json(
+        { error: "rapor kaydedilemedi. tekrar dene" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(report);
@@ -109,13 +114,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "id gerekli" }, { status: 400 });
   }
 
-  const report = reportStore.get(id);
-  if (!report) {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("reports")
+    .select("data")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Supabase select error:", error);
+    return NextResponse.json(
+      { error: "rapor yuklenemedi" },
+      { status: 500 }
+    );
+  }
+
+  if (!data) {
     return NextResponse.json(
       { error: "rapor bulunamadi" },
       { status: 404 }
     );
   }
 
-  return NextResponse.json(report);
+  return NextResponse.json(data.data);
 }
