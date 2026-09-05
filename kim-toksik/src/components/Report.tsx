@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ChatStats, AIReport } from "@/lib/types";
 import ToxicityGauge from "./ToxicityGauge";
 import RedFlags from "./RedFlags";
@@ -23,6 +24,7 @@ function formatDuration(ms: number): string {
 export default function Report({ chatStats, aiReport }: ReportProps) {
   const reportRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const router = useRouter();
 
   const personNames = Object.keys(chatStats.persons);
   const person1 = chatStats.persons[personNames[0]];
@@ -221,7 +223,7 @@ export default function Report({ chatStats, aiReport }: ReportProps) {
           {copied ? "kopyalandi!" : "sonucu paylas"}
         </button>
         <button
-          onClick={() => window.location.reload()}
+          onClick={() => router.push("/")}
           className="flex-1 py-3 px-6 rounded-xl bg-surface border border-surface-light font-semibold hover:bg-surface-light transition-colors"
         >
           yeni analiz

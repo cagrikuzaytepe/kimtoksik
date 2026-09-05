@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, use } from "react";
+import Link from "next/link";
 import Report from "@/components/Report";
 import type { ChatStats, AIReport } from "@/lib/types";
 
@@ -83,12 +84,12 @@ export default function AnalizPage({
           <div className="text-4xl mb-6 text-muted">x</div>
           <h1 className="text-2xl font-bold mb-2">bir seyler ters gitti</h1>
           <p className="text-muted mb-6">{error || "rapor bulunamadi"}</p>
-          <a
+          <Link
             href="/"
             className="inline-block py-3 px-6 rounded-xl bg-accent text-white font-semibold hover:bg-accent-dark transition-colors"
           >
             basa don
-          </a>
+          </Link>
         </div>
       </main>
     );
