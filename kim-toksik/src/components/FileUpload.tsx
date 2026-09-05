@@ -1,43 +1,89 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import JSZip from "jszip";
 
 interface FileUploadProps {
   onUpload: (content: string, fileName: string) => void;
+}
+
+const MAX_SIZE = 5 * 1024 * 1024;
+
+async function extractTextFromZip(zipFile: File): Promise<string> {
+  const zip = await JSZip.loadAsync(zipFile);
+  // once _chat.txt dogrudan aranir
+  let entry = zip.file("_chat.txt");
+  if (!entry) {
+    // yoksa kokteki ya da _chat.txt ile biten dosyayi bul
+    const candidates = Object.keys(zip.files).filter(
+      (name) =>
+        !name.endsWith("/") &&
+        (name.endsWith("_chat.txt") ||
+          name.endsWith(".txt") &&
+            name.split("/").length === 2)
+    );
+    if (!candidates.length) {
+      // son care: herhangi bir .txt
+      const anyTxt = Object.keys(zip.files).filter(
+        (name) => !name.endsWith("/") && name.endsWith(".txt")
+      );
+      if (!anyTxt.length) {
+        throw new Error("zip icinde sohbet dosyasi bulunamadi");
+      }
+      candidates.push(anyTxt[0]);
+    }
+    entry = zip.file(candidates[0]);
+  }
+  if (!entry) {
+    throw new Error("zip icinde sohbet dosyasi bulunamadi");
+  }
+  return entry.async("string");
 }
 
 export default function FileUpload({ onUpload }: FileUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
-      if (!file.name.endsWith(".txt")) {
-        setError("sadece .txt dosyalari kabul ediliyor");
+      const isTxt = file.name.endsWith(".txt");
+      const isZip = file.name.endsWith(".zip");
+
+      if (!isTxt && !isZip) {
+        setError("sadece .txt veya .zip dosyalari kabul ediliyor");
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_SIZE) {
         setError("dosya 5MB'dan kucuk olmali");
         return;
       }
 
       setIsLoading(true);
       setError(null);
+      setFileName(file.name);
 
       try {
-        const content = await file.text();
+        let content: string;
+        if (isZip) {
+          content = await extractTextFromZip(file);
+        } else {
+          content = await file.text();
+        }
+
         if (content.trim().length < 50) {
           setError("dosya cok kucuk. whatsapp sohbeti mi yukledin?");
           return;
         }
-        onUpload(content, file.name);
+        onUpload(content, isTxt ? file.name : "_chat.txt");
       } catch {
-        setError("dosya okunamadi");
+        setError("zip acilamadi. gecerli bir whatsapp sohbet zipi olmali");
       } finally {
         setIsLoading(false);
+        setFileName(null);
       }
     },
     [onUpload]
@@ -86,7 +132,7 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".txt"
+          accept=".txt,.zip"
           onChange={(e) => {
             const file = e.target.files?.[0];
             if (file) handleFile(file);
@@ -96,7 +142,10 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
 
         <div className="flex flex-col items-center gap-4">
           {isLoading ? (
-            <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin" />
+            <div className="text-center">
+              <div className="w-16 h-16 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted">{fileName}</p>
+            </div>
           ) : (
             <div className="w-20 h-20 rounded-full bg-surface border border-surface-light flex items-center justify-center">
               <svg
@@ -118,11 +167,11 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
           <div>
             <p className="text-lg font-semibold">
               {isLoading
-                ? "okunuyor..."
+                ? "zip aciliyor..."
                 : "sohbeti buraya surukle birak"}
             </p>
             <p className="text-sm text-muted mt-1">
-              ya da tikla, dosya sec
+              ya da tikla, dosya sec (.txt veya .zip)
             </p>
           </div>
 
@@ -132,6 +181,9 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
             </span>
             <span className="px-2 py-1 rounded-full bg-surface border border-surface-light">
               saklanmiyor
+            </span>
+            <span className="px-2 py-1 rounded-full bg-surface border border-surface-light">
+              zip destekleniyor
             </span>
           </div>
         </div>
@@ -150,8 +202,10 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
         <ol className="text-xs text-muted space-y-1 list-decimal list-inside">
           <li>whatsapp&apos;ta sohbeti ac</li>
           <li>ustteki isme tikla &rarr; &quot;sohbeti disa aktar&quot;</li>
-          <li>&quot;medya olmadan&quot; sec</li>
-          <li>cikan .txt dosyasini buraya yukle</li>
+          <li>
+            &quot;medya olmadan&quot; sec, zip olarak inse de sorun degil
+          </li>
+          <li>cikan .txt ya da .zip dosyasini buraya yukle</li>
         </ol>
       </div>
     </div>
