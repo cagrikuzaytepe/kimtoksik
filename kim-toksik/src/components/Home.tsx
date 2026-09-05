@@ -9,6 +9,35 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState("");
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [showNedir, setShowNedir] = useState(false);
+
+  const faqItems = [
+    {
+      q: "kim toksik nedir?",
+      a: "kim toksik, WhatsApp sohbetini yükleyip yapay zeka ile ilişkinizi analiz eden ücretsiz bir toksiklik testidir. Toksiklik skoru, red flagler, kim kimi darlıyor ve kimin haklı olduğunu otomatik olarak tespit eder.",
+    },
+    {
+      q: "toksiklik testi nasıl yapılır?",
+      a: "WhatsApp'ta sohbeti açın, kişi adına tıklayın, \"sohbeti dışa aktar\" deyin ve \"medya olmadan\" seçeneğiyle .txt dosyasını indirin. Ardından dosyayı kimtoksik.lol sayfasına sürükleyip bırakın — analiz birkaç saniye sürer.",
+    },
+    {
+      q: "whatsapp sohbetim güvende mi?",
+      a: "Evet. Yüklediğiniz sohbet yalnızca analiz için kullanılır, başka kimseyle paylaşılmaz. Kişisel mesajlar arama sonuçlarına dahil edilmez ve anonim olarak saklanır.",
+    },
+    {
+      q: "toksiklik skoru nasıl hesaplanıyor?",
+      a: "Yapay zeka; mesaj uzunlukları, geç saatte atılan mesajlar, hakaret ve aşağılama kalıpları, kimin kimi beklettiği gibi ipuçlarını tarayarak 0-100 arası bir toksiklik skoru üretir. 0 çok sağlıklı, 100 çok toksik anlamına gelir.",
+    },
+    {
+      q: "raporum ne kadar sürede hazır?",
+      a: "Sohbetin boyutuna göre genellikle 3-5 saniye içinde hazır olur. Rapor, size özel bağlantısıyla hemen paylaşılabilir.",
+    },
+    {
+      q: "kim toksik ücretsiz mi?",
+      a: "Evet, kim toksik tamamen ücretsiz bir whatsapp ilişki analizi aracıdır. Üyelik, indirme veya ödeme gerektirmez.",
+    },
+  ];
 
   const handleUpload = async (content: string, _fileName: string) => {
     setIsLoading(true);
@@ -168,24 +197,38 @@ export default function Home() {
 
       <div className="w-full border-t border-surface-light">
         <div className="max-w-3xl mx-auto px-4 py-12">
-          <h2 className="text-2xl font-bold mb-4">
-            WhatsApp toksiklik testi nedir?
-          </h2>
-          <p className="text-sm text-muted leading-relaxed mb-6">
-            kim toksik, WhatsApp sohbetinizi yapay zeka ile analiz eden ücretsiz
-            bir ilişki analizi aracıdır. Toksik sevgili mi seçtiniz, yoksa
-            ilişkiniz sağlıklı mı merak mı ediyorsunuz? Sohbet dosyanızı
-            yükleyin; 0 ile 100 arasında toksiklik skorunuzu, red flagleri, kim
-            kimi darlığını ve kimin haklı olduğunu birkaç saniyede öğrenin.
-          </p>
-          <p className="text-sm text-muted leading-relaxed">
-            Toksik liklik analizi mesaj sıklığı, ortalama mesaj uzunluğu, gece
-            geç saatlere atılan mesajlar, hızlı hızlı yazılan peş peşe
-            mesajlar, hakaret ve aşağılama kalıpları gibi onlarca ipucunu
-            tarar. Çıkan rapor size kimin kimi beklettiğini, kimin daha çok
-            yazişma başlattığını ve red flag denilecek davranışları tek tek
-            gösterir.
-          </p>
+          <button
+            onClick={() => setShowNedir(!showNedir)}
+            aria-expanded={showNedir}
+            className="w-full text-left flex items-center justify-between gap-4 mb-4"
+          >
+            <h2 className="text-2xl font-bold">
+              WhatsApp toksiklik testi nedir?
+            </h2>
+            <span className="text-2xl font-bold text-accent shrink-0">
+              {showNedir ? "\u2212" : "+"}
+            </span>
+          </button>
+          {showNedir && (
+            <>
+              <p className="text-sm text-muted leading-relaxed mb-6">
+                kim toksik, WhatsApp sohbetinizi yapay zeka ile analiz eden
+                ücretsiz bir ilişki analizi aracıdır. Toksik sevgili mi
+                seçtiniz, yoksa ilişkiniz sağlıklı mı merak mı ediyorsunuz?
+                Sohbet dosyanızı yükleyin; 0 ile 100 arasında toksiklik
+                skorunuzu, red flagleri, kim kimi darlığını ve kimin haklı
+                olduğunu birkaç saniyede öğrenin.
+              </p>
+              <p className="text-sm text-muted leading-relaxed">
+                Toksik liklik analizi mesaj sıklığı, ortalama mesaj uzunluğu,
+                gece geç saatlere atılan mesajlar, hızlı hızlı yazılan peş peşe
+                mesajlar, hakaret ve aşağılama kalıpları gibi onlarca ipucunu
+                tarar. Çıkan rapor size kimin kimi beklettiğini, kimin daha
+                çok yazişma başlattığını ve red flag denilecek davranışları
+                tek tek gösterir.
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -195,69 +238,29 @@ export default function Home() {
             Sık sorulan sorular
           </h2>
           <p className="text-sm text-muted mb-8">
-            WhatsApp toksiklik testi hakkında merak edilenler.
+            WhatsApp toksiklik testi hakkında merak edilenler. Soruya
+            tıklayın, cevabı açılsın.
           </p>
-          <div className="space-y-6">
-            <div>
-              <h3 className="font-semibold text-sm mb-1">kim toksik nedir?</h3>
-              <p className="text-sm text-muted leading-relaxed">
-                kim toksik, WhatsApp sohbetini yükleyip yapay zeka ile
-                ilişkinizi analiz eden ücretsiz bir toksiklik testidir.
-                Toksiklik skoru, red flagler, kim kimi darlıyor ve kimin haklı
-                olduğunu otomatik olarak tespit eder.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                toksiklik testi nasıl yapılır?
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                WhatsApp&apos;ta sohbeti açın, kişi adına tıklayın,
-                &quot;sohbeti dışa aktar&quot; deyin ve &quot;medya
-                olmadan&quot; seçeneğiyle .txt dosyasını indirin. Ardından
-                dosyayı kimtoksik.lol sayfasına sürükleyip bırakın — analiz
-                birkaç saniye sürer.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                whatsapp sohbetim güvende mi?
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Evet. Yüklediğiniz sohbet yalnızca analiz için kullanılır,
-                başka kimseyle paylaşılmaz. Kişisel mesajlar arama sonuçlarına
-                dahil edilmez ve anonim olarak saklanır.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                toksiklik skoru nasıl hesaplanıyor?
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Yapay zeka; mesaj uzunlukları, geç saatte atılan mesajlar,
-                hakaret ve aşağılama kalıpları, kimin kimi beklettiği gibi
-                ipuçlarını tarayarak 0-100 arası bir toksiklik skoru üretir. 0
-                çok sağlıklı, 100 çok toksik anlamına gelir.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                raporum ne kadar sürede hazır?
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Sohbetin boyutuna göre genellikle 3-5 saniye içinde hazır
-                olur. Rapor, size özel bağlantısıyla hemen paylaşılabilir.
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold text-sm mb-1">
-                kim toksik ücretsiz mi?
-              </h3>
-              <p className="text-sm text-muted leading-relaxed">
-                Evet, kim toksik tamamen ücretsiz bir whatsapp ilişki analizi
-                aracıdır. Üyelik, indirme veya ödeme gerektirmez.
-              </p>
-            </div>
+          <div className="space-y-3">
+            {faqItems.map((item, i) => (
+              <div key={i} className="rounded-xl bg-surface border border-surface-light">
+                <button
+                  onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                  aria-expanded={openFaq === i}
+                  className="w-full text-left flex items-center justify-between gap-4 px-5 py-4"
+                >
+                  <h3 className="font-semibold text-sm">{item.q}</h3>
+                  <span className="text-lg font-bold text-accent shrink-0">
+                    {openFaq === i ? "\u2212" : "+"}
+                  </span>
+                </button>
+                {openFaq === i && (
+                  <p className="text-sm text-muted leading-relaxed px-5 pb-4">
+                    {item.a}
+                  </p>
+                )}
+              </div>
+            ))}
           </div>
         </div>
       </div>
