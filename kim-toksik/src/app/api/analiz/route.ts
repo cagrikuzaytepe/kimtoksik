@@ -11,14 +11,6 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
 ];
 
-// WhatsApp sohbet formatina benziyor mu?
-function looksLikeWhatsAppChat(content: string): boolean {
-  const firstLines = content.slice(0, 500);
-  // WhatsApp tarih formati: DD.MM.YYYY HH:MM veya MM/DD/YY, HH:MM
-  const whatsappDatePattern = /\d{1,2}[./]\d{1,2}[./]\d{2,4}[, ]+\d{1,2}:\d{2}/;
-  return whatsappDatePattern.test(firstLines);
-}
-
 function getCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin") || "";
   const headers: Record<string, string> = {
@@ -63,38 +55,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    // Request body boyut kontrolu (content-length header)
-    const contentLength = request.headers.get("content-length");
-    if (contentLength && parseInt(contentLength) > 20 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "istek cok buyuk" },
-        { status: 413, headers: corsHeaders }
-      );
-    }
-
     const body = await request.json();
     const { content } = body;
 
     // Content validasyonu
     if (!content || typeof content !== "string") {
       return NextResponse.json(
-        { error: "gecerli bir sohbet dosyasi gerekli" },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // Bos veya cok kisa content
-    if (content.trim().length < 50) {
-      return NextResponse.json(
-        { error: "dosya cok kucuk" },
-        { status: 400, headers: corsHeaders }
-      );
-    }
-
-    // WhatsApp formati kontrolu
-    if (!looksLikeWhatsAppChat(content)) {
-      return NextResponse.json(
-        { error: "bu bir whatsapp sohbeti gibi gozukmuyor" },
+        { error: "gecerli bir dosya gerekli" },
         { status: 400, headers: corsHeaders }
       );
     }
@@ -187,20 +154,6 @@ export async function GET(request: Request) {
   if (!id) {
     return NextResponse.json(
       { error: "id gerekli" },
-      {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          "Cache-Control": "no-store, max-age=0",
-        },
-      }
-    );
-  }
-
-  // ID formati kontrolu (nanoid 10 karakter)
-  if (id.length !== 10 || !/^[a-zA-Z0-9]+$/.test(id)) {
-    return NextResponse.json(
-      { error: "gecersiz rapor id" },
       {
         status: 400,
         headers: {
