@@ -68,9 +68,8 @@ export async function POST(request: Request) {
 
     // Potansiyel zararli content temizligi
     const sanitizedContent = content
-      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "") // XSS korumasi
-      .replace(/javascript:/gi, "") // JS injection korumasi
-      .slice(0, 5 * 1024 * 1024); // 5MB ile sinirla (buyukluk kontrolu)
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/javascript:/gi, "");
 
     let chatStats;
     try {
