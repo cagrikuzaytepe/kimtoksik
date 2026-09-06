@@ -430,10 +430,16 @@ export function parseWhatsAppChat(rawText: string): ChatStats {
     ? sampleMessages(userMessages, SAMPLE_SIZE)
     : userMessages;
 
-  // Tarih araligi
-  const dates = userMessages.map((m) => m.date.getTime());
-  const start = new Date(Math.min(...dates));
-  const end = new Date(Math.max(...dates));
+  // Tarih araligi (iteratif - spread operator buyuk dizilerde stack overflow yapar)
+  let minTime = Infinity;
+  let maxTime = -Infinity;
+  for (const m of userMessages) {
+    const t = m.date.getTime();
+    if (t < minTime) minTime = t;
+    if (t > maxTime) maxTime = t;
+  }
+  const start = new Date(minTime);
+  const end = new Date(maxTime);
   const totalDays = Math.max(
     1,
     Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
