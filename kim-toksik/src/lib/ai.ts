@@ -2,6 +2,7 @@ import type { ChatStats, AIReport } from "./types";
 import { buildAnalysisPrompt } from "./prompts";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const TIMEOUT_MS = 90_000; // 90 saniye timeout
 
 // Model siralamasi: once en az yogun olan, sonra digerleri
 const MODELS = [
@@ -15,14 +16,16 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
     throw new Error("GEMINI_API_KEY ayarlanmamis");
   }
 
-  const prompt = buildAnalysisPrompt(stats);
+  // Buyuk dosyalarda promptu kisitla (token limitini asmamak icin)
+  const trimmedStats = trimStatsForLargeInput(stats);
+  const prompt = buildAnalysisPrompt(trimmedStats);
 
   let text: string | null = null;
   let lastError: string = "";
 
   // Her modeli dene
   for (const model of MODELS) {
-    console.log(`Model deneniyor: ${model}`);
+    console.log(`Model deneniyor: ${model} (prompt: ${prompt.length} chars)`);
 
     // 1. dene: JSON mode ile
     text = await callGemini(prompt, true, model);
@@ -70,6 +73,29 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
   return parsed as AIReport;
 }
 
+// Buyuk dosyalarda istatistikleri kisitla (token tasarrufu)
+function trimStatsForLargeInput(stats: ChatStats): ChatStats {
+  const trimmed = { ...stats };
+
+  // Sample mesajlari 8 ile sinirla
+  if (trimmed.sampleMessages.length > 8) {
+    trimmed.sampleMessages = trimmed.sampleMessages.slice(0, 8);
+  }
+
+  // Toxicity signal'larini 5 ile sinirla
+  if (trimmed.toxicitySignals.length > 5) {
+    trimmed.toxicitySignals = trimmed.toxicitySignals.slice(0, 5);
+  }
+
+  // Ornek mesaj uzunlugunu sinirla
+  trimmed.sampleMessages = trimmed.sampleMessages.map((m) => ({
+    ...m,
+    message: m.message.slice(0, 100),
+  }));
+
+  return trimmed;
+}
+
 async function callGemini(
   prompt: string,
   jsonResponse: boolean,
@@ -81,6 +107,10 @@ async function callGemini(
   if (jsonResponse) {
     config.responseMimeType = "application/json";
   }
+
+  // Timeout icin AbortController
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
     const res = await fetch(
@@ -95,8 +125,11 @@ async function callGemini(
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: config,
         }),
+        signal: controller.signal,
       }
     );
+
+    clearTimeout(timeoutId);
 
     if (!res.ok) {
       const err = await res.text();
@@ -106,7 +139,14 @@ async function callGemini(
 
     const data = await res.json();
     return data?.candidates?.[0]?.content?.parts?.[0]?.text ?? null;
-  } catch (e) {
+  } catch (e: unknown) {
+    clearTimeout(timeoutId);
+
+    if (e instanceof Error && e.name === "AbortError") {
+      console.error(`Gemini timeout (${model}): ${TIMEOUT_MS}ms aşıldı`);
+      return null;
+    }
+
     console.error(`Gemini fetch error (${model}):`, e);
     return null;
   }
