@@ -20,7 +20,6 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
   const prompt = buildAnalysisPrompt(trimmedStats);
 
   let text: string | null = null;
-  let lastError: string = "";
 
   // Her modeli dene - timeout yok, model basarisiz olursa digerine gec
   for (const model of MODELS) {
@@ -40,7 +39,6 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
       break;
     }
 
-    lastError = `${model} basarisiz`;
     console.warn(`${model} basarisiz, siradaki modele geciliyor...`);
     text = null;
   }

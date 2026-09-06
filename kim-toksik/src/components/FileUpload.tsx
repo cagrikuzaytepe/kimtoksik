@@ -7,7 +7,7 @@ interface FileUploadProps {
   onUpload: (content: string) => void;
 }
 
-const MAX_SIZE = Infinity;
+
 
 async function extractTextFromZip(zipFile: File): Promise<string> {
   const zip = await JSZip.loadAsync(zipFile);
