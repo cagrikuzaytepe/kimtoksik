@@ -7,7 +7,7 @@ interface FileUploadProps {
   onUpload: (content: string) => void;
 }
 
-const MAX_SIZE = 5 * 1024 * 1024;
+const MAX_SIZE = Infinity;
 
 async function extractTextFromZip(zipFile: File): Promise<string> {
   const zip = await JSZip.loadAsync(zipFile);
@@ -57,10 +57,7 @@ export default function FileUpload({ onUpload }: FileUploadProps) {
         return;
       }
 
-      if (file.size > MAX_SIZE) {
-        setError("dosya 5MB'dan kucuk olmali");
-        return;
-      }
+
 
       setIsLoading(true);
       setError(null);

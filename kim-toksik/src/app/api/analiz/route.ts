@@ -64,12 +64,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (content.length > 5 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "dosya cok buyuk. 5MB'dan kucuk olmali" },
-        { status: 400, headers: corsHeaders }
-      );
-    }
+
 
     let chatStats;
     try {
