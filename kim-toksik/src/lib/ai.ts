@@ -19,11 +19,13 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
   const trimmedStats = trimStatsForLargeInput(stats);
   const prompt = buildAnalysisPrompt(trimmedStats);
 
+  console.log(`Prompt boyutu: ${prompt.length} chars, Buyuk dosya: ${stats.isLargeChat}`);
+
   let text: string | null = null;
 
   // Her modeli dene - timeout yok, model basarisiz olursa digerine gec
   for (const model of MODELS) {
-    console.log(`Model deneniyor: ${model} (prompt: ${prompt.length} chars)`);
+    console.log(`Model deneniyor: ${model}`);
 
     // 1. dene: JSON mode ile
     text = await callGemini(prompt, true, model);
@@ -75,20 +77,29 @@ export async function analyzeWithAI(stats: ChatStats): Promise<AIReport> {
 function trimStatsForLargeInput(stats: ChatStats): ChatStats {
   const trimmed = { ...stats };
 
-  // Sample mesajlari 8 ile sinirla
-  if (trimmed.sampleMessages.length > 8) {
-    trimmed.sampleMessages = trimmed.sampleMessages.slice(0, 8);
+  // Sample mesajlari sinirla
+  const maxSamples = stats.isLargeChat ? 5 : 8;
+  if (trimmed.sampleMessages.length > maxSamples) {
+    trimmed.sampleMessages = trimmed.sampleMessages.slice(0, maxSamples);
   }
 
-  // Toxicity signal'larini 5 ile sinirla
-  if (trimmed.toxicitySignals.length > 5) {
-    trimmed.toxicitySignals = trimmed.toxicitySignals.slice(0, 5);
+  // Toxicity signal'larini sinirla
+  const maxSignals = stats.isLargeChat ? 3 : 5;
+  if (trimmed.toxicitySignals.length > maxSignals) {
+    trimmed.toxicitySignals = trimmed.toxicitySignals.slice(0, maxSignals);
   }
 
   // Ornek mesaj uzunlugunu sinirla
+  const maxMsgLen = stats.isLargeChat ? 60 : 100;
   trimmed.sampleMessages = trimmed.sampleMessages.map((m) => ({
     ...m,
-    message: m.message.slice(0, 100),
+    message: m.message.slice(0, maxMsgLen),
+  }));
+
+  // Signal aciklamalarini kisalt
+  trimmed.toxicitySignals = trimmed.toxicitySignals.map((s) => ({
+    ...s,
+    description: s.description.slice(0, stats.isLargeChat ? 60 : 100),
   }));
 
   return trimmed;

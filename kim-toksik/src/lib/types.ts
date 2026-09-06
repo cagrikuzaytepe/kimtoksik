@@ -29,6 +29,7 @@ export interface ChatStats {
   hourlyDistribution: number[];
   toxicitySignals: ToxicitySignal[];
   sampleMessages: SampleMessage[];
+  isLargeChat: boolean;
 }
 
 export interface ToxicitySignal {
