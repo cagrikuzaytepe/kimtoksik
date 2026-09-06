@@ -11,11 +11,19 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
 ];
 
+// WhatsApp sohbet formatina benziyor mu?
+function looksLikeWhatsAppChat(content: string): boolean {
+  const firstLines = content.slice(0, 500);
+  // WhatsApp tarih formati: DD.MM.YYYY HH:MM veya MM/DD/YY, HH:MM
+  const whatsappDatePattern = /\d{1,2}[./]\d{1,2}[./]\d{2,4}[, ]+\d{1,2}:\d{2}/;
+  return whatsappDatePattern.test(firstLines);
+}
+
 function getCorsHeaders(request: Request): Record<string, string> {
   const origin = request.headers.get("origin") || "";
   const headers: Record<string, string> = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type",
     "Access-Control-Max-Age": "86400",
   };
 
@@ -34,6 +42,7 @@ function getClientIP(request: Request): string {
 
 export async function POST(request: Request) {
   const corsHeaders = getCorsHeaders(request);
+  const requestId = nanoid(8);
 
   // Handle preflight
   if (request.method === "OPTIONS") {
@@ -54,9 +63,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Request body boyut kontrolu (content-length header)
+    const contentLength = request.headers.get("content-length");
+    if (contentLength && parseInt(contentLength) > 20 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "istek cok buyuk" },
+        { status: 413, headers: corsHeaders }
+      );
+    }
+
     const body = await request.json();
     const { content } = body;
 
+    // Content validasyonu
     if (!content || typeof content !== "string") {
       return NextResponse.json(
         { error: "gecerli bir sohbet dosyasi gerekli" },
@@ -64,11 +83,31 @@ export async function POST(request: Request) {
       );
     }
 
+    // Bos veya cok kisa content
+    if (content.trim().length < 50) {
+      return NextResponse.json(
+        { error: "dosya cok kucuk" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
 
+    // WhatsApp formati kontrolu
+    if (!looksLikeWhatsAppChat(content)) {
+      return NextResponse.json(
+        { error: "bu bir whatsapp sohbeti gibi gozukmuyor" },
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Potansiyel zararli content temizligi
+    const sanitizedContent = content
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "") // XSS korumasi
+      .replace(/javascript:/gi, "") // JS injection korumasi
+      .slice(0, 5 * 1024 * 1024); // 5MB ile sinirla (buyukluk kontrolu)
 
     let chatStats;
     try {
-      chatStats = parseWhatsAppChat(content);
+      chatStats = parseWhatsAppChat(sanitizedContent);
     } catch (e) {
       return NextResponse.json(
         {
@@ -85,7 +124,7 @@ export async function POST(request: Request) {
     try {
       aiReport = await analyzeWithAI(chatStats);
     } catch (e) {
-      console.error("AI analysis error:", e);
+      console.error(`[${requestId}] AI error:`, e);
       return NextResponse.json(
         {
           error:
@@ -112,7 +151,7 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      console.error("Supabase insert error:", error);
+      console.error(`[${requestId}] Supabase error:`, error);
       return NextResponse.json(
         { error: "rapor kaydedilemedi. tekrar dene" },
         { status: 500, headers: corsHeaders }
@@ -126,7 +165,7 @@ export async function POST(request: Request) {
       },
     });
   } catch (e) {
-    console.error("API error:", e);
+    console.error(`[${requestId}] API error:`, e);
     return NextResponse.json(
       { error: "sunucu hatasi" },
       {
@@ -148,6 +187,20 @@ export async function GET(request: Request) {
   if (!id) {
     return NextResponse.json(
       { error: "id gerekli" },
+      {
+        status: 400,
+        headers: {
+          ...corsHeaders,
+          "Cache-Control": "no-store, max-age=0",
+        },
+      }
+    );
+  }
+
+  // ID formati kontrolu (nanoid 10 karakter)
+  if (id.length !== 10 || !/^[a-zA-Z0-9]+$/.test(id)) {
+    return NextResponse.json(
+      { error: "gecersiz rapor id" },
       {
         status: 400,
         headers: {
