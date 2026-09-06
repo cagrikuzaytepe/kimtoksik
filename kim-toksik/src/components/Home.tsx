@@ -59,7 +59,15 @@ export default function Home() {
       setProgress("rapor hazirlaniyor...");
       const data = await response.json();
 
-      sessionStorage.setItem(`report-${data.id}`, JSON.stringify(data));
+      // Buyuk raporlarda sessionStorage'a kaydetme (stack overflow onlemi)
+      try {
+        const serialized = JSON.stringify(data);
+        if (serialized.length < 500_000) {
+          sessionStorage.setItem(`report-${data.id}`, serialized);
+        }
+      } catch {
+        // Serialization hataliysa kaydetme, API'den cekilecek
+      }
       router.push(`/analiz/${data.id}`);
     } catch (err) {
       setError(
